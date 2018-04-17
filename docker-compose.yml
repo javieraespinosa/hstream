@@ -1,0 +1,61 @@
+
+version: '3'
+services:
+
+  hstream:
+    build:  .
+    image:  hstream    
+    working_dir: /root
+    environment:
+      SPARK_PUBLIC_DNS: localhost    
+      SPARK_CONF_DIR:   /conf    
+    volumes:
+      - .:/root  
+      - ./conf/spark:/conf      
+
+  influx:
+    container_name: influx
+    image:    influxdb:1.3
+    hostname: influx
+    ports:
+      - 8086:8086
+      
+  rabbit:
+    container_name: rabbit
+    image:    rabbitmq:3-management
+    hostname: rabbit
+    ports:
+      - 15672:15672 
+      - 5672:5672
+
+  master:
+    container_name: spark_master
+    image:    hstream
+    command:  spark-class org.apache.spark.deploy.master.Master -h master
+    hostname: master
+    environment:
+      SPARK_CONF_DIR:   /conf
+      SPARK_PUBLIC_DNS: localhost
+    ports:
+      - 7077:7077   # SPARK_MASTER_PORT
+      - 8080:8080   # SPARK_MASTER_WEBUI_PORT      
+    volumes:
+      - ./conf/spark:/conf      
+
+
+  worker:
+    container_name: spark_worker
+    image: hstream
+    command: spark-class org.apache.spark.deploy.worker.Worker spark://master:7077
+    hostname: worker
+    environment:
+      SPARK_CONF_DIR: /conf
+      SPARK_PUBLIC_DNS: localhost
+    ports:
+      - 8081:8081   # SPARK_WORKER_PORT
+      - 8881:8881   # SPARK_WORKER_WEBUI_PORT      
+    volumes:
+      - ./conf/spark:/conf
+    depends_on:
+      - master
+      

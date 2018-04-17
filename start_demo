@@ -1,0 +1,41 @@
+#!/usr/bin/env python
+
+from subprocess import call
+
+# secs
+size = "30"
+hop  = "5"
+
+op      = "Max"
+op_att  = "download_speed"
+op_hist = "influxdb"
+
+influx_db    = 'example'
+influx_serie = 'speedtests'
+
+win_hop  = "20000"  if hop  == "" else str(int(hop)*1000)
+win_size = "120000"  if size == "" else str(int(size)*1000)
+win_type = "sliding" 
+
+q_in  = "neubot"
+q_out = "outqueue"
+
+cmd1 = "docker-compose run --rm hstream " + \
+            "ruby scripts/influx_insert.rb"
+
+cmd2 = "docker-compose run --rm -p 4040:4040 hstream " + \
+            "/usr/spark-2.2.0/bin/spark-submit " + \
+            "--class iotoperator." + op + " " + \
+            "--master spark://master:7077 lib/IoT-Operators-assembly-1.4.jar " + \
+            op_att   + " " + \
+            win_hop  + " " + \
+            win_size + " " + \
+            win_type + " " + \
+            op_hist  + " " + \
+            "http://root:root@influx:8086 " + influx_db + " " + influx_serie + " " + \
+            "amqp://guest:guest@rabbit:5672/%2f " + q_in  + " " + \
+            "amqp://guest:guest@rabbit:5672/%2f " + q_out + " " + \
+            "| grep -v akka "
+
+call([cmd1], shell=True)
+call([cmd2], shell=True)
